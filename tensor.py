@@ -1,34 +1,44 @@
-import torch
+import numpy as np
 from autograd import backward
+from autograd import backward_add
+from autograd import backward_matmul
+from typing import Tuple
+from autograd import build_computational_order
 
 class tensor:
     def __init__(self, data, requires_grad=False):
-        self.data = torch.tensor(data, dtype=torch.float32, requires_grad=False)
-        self.grad = None
+        self.data = np.array(data, dtype=np.float32)
+        self.grad = np.zeros_like(self.data) if requires_grad else None
         self.requires_grad = requires_grad
-        self.opb = None
-        self.track = None
+        self.track = ()
+        self.grad_fn = lambda : None
         self._backward = None
 
     def __repr__(self):
         return f"tenxar.tensor({self.data}, requires_grad={self.requires_grad})"
+    
+    def _ensure_tensor(self, other):
+        return other if isinstance(other, tensor) else tensor(other)
+    
+    @property
+    def shape(self) -> Tuple[int, ...]:
+        return self.data.shape
 
     def __add__(self, other):
-        other = other if isinstance(other, tensor) else tensor(other)
+        other = self._ensure_tensor(other)
         result = tensor(self.data + other.data, requires_grad=self.requires_grad or other.requires_grad)
         if result.requires_grad:
             self.track = ('add', (self, other))
-
-        result._backward = backward(self, other, result)
+            result._backward = backward_add(self, other, result)
         return result
     
     def __mul__(self, other):
-        other = other if isinstance(other, tensor) else tensor(other)
+        other = self._ensure_tensor(other)
         result = tensor(self.data * other.data, requires_grad=self.requires_grad or other.requires_grad)
         if result.requires_grad:
             self.track = ('mul', (self, other))
-        
-        result._backward = backward(self, other, result)
+            result._backward = backward(self, other, result)
+
         return result
 
     def __rmul__(self, other):
@@ -38,31 +48,37 @@ class tensor:
         return self * -1
 
     def __matmul__(self, other):
-        other = other if isinstance(other, tensor) else tensor(other)
+        other = self._ensure_tensor(other)
         result = tensor(self.data @ other.data, requires_grad=self.requires_grad or other.requires_grad)
         if result.requires_grad:
             self.track = ('matmul', (self, other))
-        
-        result._backward = backward(self, other, result)
+            result._backward = backward_matmul(self, other, result)
         return result
 
     def __rmatmul__(self, other):
-        other = other if isinstance(other, tensor) else tensor(other)
+        other = self._ensure_tensor(other)
         return other @ self
     
     def exp(self):
-        x = self.data
-        result = tensor(x.exp(), requires_grad=self.requires_grad)
+        result = tensor(np.exp(self.data), requires_grad=self.requires_grad)
         if result.requires_grad:
             self.track = ('exp', (self))
-        result._backward = backward(self, result)
+            result._backward = backward(self, result)
         return result
 
     def tanh(self):
         x = self.data
-        tanh = x.tanh()
+        tanh = np.tanh(x)
         result = tensor(tanh, requires_grad=self.requires_grad)
         if result.requires_grad:
             self.track = ('tanh', (self))
-        result._backward = backward(self, tanh, result)
+            result._backward = backward(self, tanh, result)
         return result
+
+    def backward(self, grad=None):
+        if grad is None:
+            grad = np.ones_like(self.data)
+        self.grad = grad
+
+        for node in reversed(build_computational_order(self)):
+            node._backward()
