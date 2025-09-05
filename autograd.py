@@ -21,13 +21,21 @@ def backward_add(self, other, result):
             other.grad += match_shape(result.grad, other.data.shape)
     return _backward
 
-def backward_matmul(self, other, result):
-    assert self.shape[1] == other.shape[0]; "shape should match"
+def backward_mul(self, other, result):
     def _backward():
         if self.requires_grad:
             self.grad += match_shape(other.data * result.grad, self.data.shape)
         if other.requires_grad:
             other.grad += match_shape(self.data * result.grad, other.data.shape)
+    return _backward
+
+def backward_matmul(self, other, result):
+    assert self.shape[1] == other.shape[0]; "shape should match"
+    def _backward():
+        if self.requires_grad:
+            self.grad += result.grad @ other.data.T
+        if other.requires_grad:
+            other.grad += result.grad @ self.data.T
     return _backward
 
 def backward_tanh(self, tanh, result):

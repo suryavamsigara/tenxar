@@ -1,7 +1,9 @@
 import numpy as np
-from autograd import backward
 from autograd import backward_add
+from autograd import backward_mul
 from autograd import backward_matmul
+from autograd import backward_tanh
+from autograd import backward_exp
 from typing import Tuple
 from autograd import build_computational_order
 
@@ -37,7 +39,7 @@ class tensor:
         result = tensor(self.data * other.data, requires_grad=self.requires_grad or other.requires_grad)
         if result.requires_grad:
             self.track = ('mul', (self, other))
-            result._backward = backward(self, other, result)
+            result._backward = backward_mul(self, other, result)
 
         return result
 
@@ -63,7 +65,7 @@ class tensor:
         result = tensor(np.exp(self.data), requires_grad=self.requires_grad)
         if result.requires_grad:
             self.track = ('exp', (self))
-            result._backward = backward(self, result)
+            result._backward = backward_exp(self, result)
         return result
 
     def tanh(self):
@@ -72,7 +74,7 @@ class tensor:
         result = tensor(tanh, requires_grad=self.requires_grad)
         if result.requires_grad:
             self.track = ('tanh', (self))
-            result._backward = backward(self, tanh, result)
+            result._backward = backward_tanh(self, tanh, result)
         return result
 
     def backward(self, grad=None):
