@@ -6,10 +6,13 @@ from .tenxar import (
     dtype
 )
 
+from .autograd import no_grad
+
 __all__ = (
     'tenxar',
     'shape',
     'zero_grad',
     'to_numpy',
-    'dtype'
+    'dtype',
+    'no_grad'
 )

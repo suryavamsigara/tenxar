@@ -2,7 +2,7 @@ import numpy as np
 from autograd import backward_add, backward_matmul, backward_exp, backward_tanh, backward_mean, backward_mul, backward_pow
 from typing import Tuple
 from autograd import build_computational_order
-from autograd import _no_grad_mode
+from autograd import no_grad
 
 class tensor:
     def __init__(self, data, requires_grad: bool=False):
@@ -62,7 +62,7 @@ class tensor:
         if self.shape[-1] != other.shape[0]:
             raise ValueError(f"Shape mismatch for matmul: {self.shape} and {other.shape}")
         result = tensor(self.data @ other.data, requires_grad=self.requires_grad or other.requires_grad)
-        if result.requires_grad and not _no_grad_mode:
+        if result.requires_grad:
             result.track = (self, other)
             result._backward = backward_matmul(self, other, result)
         return result
@@ -90,7 +90,7 @@ class tensor:
         if not isinstance(other, (int, float)):
             raise ValueError(f"Only scalar powers supported")
         result = tensor(self.data ** other, requires_grad=self.requires_grad)
-        if result.requires_grad and not _no_grad_mode:
+        if result.requires_grad:
             result.track = (self,)
             result._backward = backward_pow(self, other, result)
         return result
@@ -131,4 +131,4 @@ class tensor:
         if isinstance(self, tensor):
             return self.data.dtype
         
-    
+__all__ = ['tenxar', 'no_grad']
