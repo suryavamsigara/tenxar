@@ -1,20 +1,16 @@
 import numpy as np
-from autograd import backward_add
-from autograd import backward_mul
-from autograd import backward_matmul
-from autograd import backward_tanh
-from autograd import backward_exp
+from autograd import backward_add, backward_matmul, backward_exp, backward_tanh, backward_mean, backward_mul, backward_pow
 from typing import Tuple
 from autograd import build_computational_order
+from autograd import _no_grad_mode
 
 class tensor:
-    def __init__(self, data, requires_grad=False):
+    def __init__(self, data, requires_grad: bool=False):
         self.data = np.array(data, dtype=np.float32)
-        self.grad = np.zeros_like(self.data) if requires_grad else None
+        self.grad = None
         self.requires_grad = requires_grad
-        self.track = ()
-        self.grad_fn = lambda : None
-        self._backward = None
+        self.track = None
+        self._backward = lambda : None
 
     def __repr__(self):
         return f"tenxar.tensor({self.data}, requires_grad={self.requires_grad})"
@@ -24,21 +20,33 @@ class tensor:
     
     @property
     def shape(self) -> Tuple[int, ...]:
-        return self.data.shape
+        return tuple(self.data.shape)
+    
+    def zero_grad(self):
+        if self.requires_grad:
+            self.grad = np.zeros_like(self.data)
 
     def __add__(self, other):
         other = self._ensure_tensor(other)
         result = tensor(self.data + other.data, requires_grad=self.requires_grad or other.requires_grad)
         if result.requires_grad:
-            self.track = ('add', (self, other))
+            result.track = (self, other)
             result._backward = backward_add(self, other, result)
         return result
+    
+    def __sub__(self, other):
+        other = self._ensure_tensor(other)
+        return self + (-other)
+
+    def __rsub__(self, other):
+        other = self._ensure_tensor(other)
+        return other + (-self)
     
     def __mul__(self, other):
         other = self._ensure_tensor(other)
         result = tensor(self.data * other.data, requires_grad=self.requires_grad or other.requires_grad)
         if result.requires_grad:
-            self.track = ('mul', (self, other))
+            result.track = (self, other)
             result._backward = backward_mul(self, other, result)
 
         return result
@@ -51,9 +59,11 @@ class tensor:
 
     def __matmul__(self, other):
         other = self._ensure_tensor(other)
+        if self.shape[-1] != other.shape[0]:
+            raise ValueError(f"Shape mismatch for matmul: {self.shape} and {other.shape}")
         result = tensor(self.data @ other.data, requires_grad=self.requires_grad or other.requires_grad)
-        if result.requires_grad:
-            self.track = ('matmul', (self, other))
+        if result.requires_grad and not _no_grad_mode:
+            result.track = (self, other)
             result._backward = backward_matmul(self, other, result)
         return result
 
@@ -61,11 +71,28 @@ class tensor:
         other = self._ensure_tensor(other)
         return other @ self
     
+    def __truediv__(self, other):
+        other = self._ensure_tensor(other)
+        return self * (other ** -1)
+    
+    def _rtruediv(self, other):
+        other = self._ensure_tensor(other)
+        return other * (self ** -1)
+    
     def exp(self):
         result = tensor(np.exp(self.data), requires_grad=self.requires_grad)
         if result.requires_grad:
-            self.track = ('exp', (self))
+            result.track = (self,)
             result._backward = backward_exp(self, result)
+        return result
+    
+    def __pow__(self, other):
+        if not isinstance(other, (int, float)):
+            raise ValueError(f"Only scalar powers supported")
+        result = tensor(self.data ** other, requires_grad=self.requires_grad)
+        if result.requires_grad and not _no_grad_mode:
+            result.track = (self,)
+            result._backward = backward_pow(self, other, result)
         return result
 
     def tanh(self):
@@ -73,13 +100,25 @@ class tensor:
         tanh = np.tanh(x)
         result = tensor(tanh, requires_grad=self.requires_grad)
         if result.requires_grad:
-            self.track = ('tanh', (self))
+            result.track = (self,)
             result._backward = backward_tanh(self, tanh, result)
+        return result
+    
+    def mean(self, axis=None, keepdims=False):
+        result = tensor(self.data.mean(axis=axis, keepdims=keepdims), requires_grad=self.requires_grad)
+        if result.requires_grad:
+            result._backward = backward_mean(self, result, axis, keepdims)
+            result.track = (self,)
         return result
 
     def backward(self, grad=None):
         if grad is None:
             grad = np.ones_like(self.data)
+
+        for node in build_computational_order(self):
+            if node.requires_grad:
+                node.grad = np.zeros_like(node.data)
+
         self.grad = grad
 
         for node in reversed(build_computational_order(self)):
