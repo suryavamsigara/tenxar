@@ -123,3 +123,12 @@ class tensor:
 
         for node in reversed(build_computational_order(self)):
             node._backward()
+
+    def to_numpy(self) -> np.ndarray:
+        return np.array(self.data)
+    
+    def dtype(self):
+        if isinstance(self, tensor):
+            return self.data.dtype
+        
+    

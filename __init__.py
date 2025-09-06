@@ -1,11 +1,15 @@
-from .tensor import (
+from .tenxar import (
     tensor,
     shape,
-    zero_grad
+    zero_grad,
+    to_numpy,
+    dtype
 )
 
 __all__ = (
-    'tensor',
+    'tenxar',
     'shape',
-    'zero_grad'
+    'zero_grad',
+    'to_numpy',
+    'dtype'
 )
