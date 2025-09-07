@@ -91,7 +91,34 @@ def backward_mean(self, result, axis=None, keepdims=False):
                     grad = np.expand_dims(grad, axis) if not keepdims else grad
                     grad = grad * np.ones_like(self.data) / n
                 self.grad += grad
-    return _backward      
+    return _backward
+
+def backward_sum(self, result, axis=None, keepdims=False):
+    def _backward():
+        if not _no_grad_mode:
+            if self.requires_grad:
+                if self.grad is None:
+                    self.grad = np.zeros_like(self.data)
+                grad = result.grad
+                if axis is None:
+                    grad = grad * np.ones_like(self.data) / self.data.size
+                else:
+                    n = self.data.shape[axis] if isinstance(axis, int) else np.prod([self.data.shape[i] for i in axis])
+                    grad = np.expand_dims(grad, axis) if not keepdims else grad
+                    grad = grad * np.ones_like(self.data) / n
+                self.grad += grad
+    return _backward
+
+def backward_log(self, result):
+    def _backward():
+        if not _no_grad_mode:
+            if self.requires_grad:
+                if self.grad is None:
+                    self.grad = np.zeros_like(self.data)
+                grad = result.grad
+                grad = grad * np.ones_like(self.data) / self.data
+                self.grad += grad
+    return _backward
 
 def build_computational_order(root) -> List:
     computation_order: List = []

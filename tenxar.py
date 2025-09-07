@@ -1,8 +1,18 @@
 import numpy as np
-from autograd import backward_add, backward_matmul, backward_exp, backward_tanh, backward_mean, backward_mul, backward_pow
+from autograd import (backward_add,
+                      backward_matmul,
+                      backward_exp,
+                      backward_tanh,
+                      backward_mean,
+                      backward_sum,
+                      backward_mul,
+                      backward_pow,
+                      backward_log)
 from typing import Tuple
 from autograd import build_computational_order
 from autograd import no_grad
+
+__all__ = ['tenxar', 'no_grad']
 
 class tensor:
     def __init__(self, data, requires_grad: bool=False):
@@ -110,6 +120,20 @@ class tensor:
             result._backward = backward_mean(self, result, axis, keepdims)
             result.track = (self,)
         return result
+    
+    def sum(self, axis=None, keepdims=False):
+        result = tensor(self.data.sum(axis=axis, keepdims=keepdims), requires_grad=self.requires_grad)
+        if result.requires_grad:
+            result._backward = backward_sum(self, result, axis, keepdims)
+            result.track = (self,)
+        return result
+    
+    def log(self):
+        result = tensor(np.log(self.data), requires_grad=self.requires_grad)
+        if result.requires_grad:
+            result._backward = backward_log(self, result)
+            result.track = (self,)
+        return result
 
     def backward(self, grad=None):
         if grad is None:
@@ -127,8 +151,11 @@ class tensor:
     def to_numpy(self) -> np.ndarray:
         return np.array(self.data)
     
+    def to_tensor(self):
+        if isinstance(self, np.ndarray):
+            return tensor(self)
+    
     def dtype(self):
         if isinstance(self, tensor):
             return self.data.dtype
         
-__all__ = ['tenxar', 'no_grad']
