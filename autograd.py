@@ -7,8 +7,17 @@ def match_shape(grad, shape):
         grad = grad.sum(axis=0)
     for i, dim in enumerate(shape):
         if dim == 1 and grad.shape[i] > 1:
-            grad = grad.sum(axis=i, keepdims=True) # returns a 2D array 
+            grad = grad.sum(axis=i, keepdims=True)
     return grad
+
+def backward_getitem(self, index, result):
+    def _backward():
+        if not _no_grad_mode:
+            if self.requires_grad:
+                if self.grad is None:
+                    self.grad = np.zeros_like(self.data)
+                np.add.at(self.grad, index, result.grad)
+    return _backward
 
 def backward_add(self, other, result):
     def _backward():
@@ -100,13 +109,9 @@ def backward_sum(self, result, axis=None, keepdims=False):
                 if self.grad is None:
                     self.grad = np.zeros_like(self.data)
                 grad = result.grad
-                if axis is None:
-                    grad = grad * np.ones_like(self.data) / self.data.size
-                else:
-                    n = self.data.shape[axis] if isinstance(axis, int) else np.prod([self.data.shape[i] for i in axis])
-                    grad = np.expand_dims(grad, axis) if not keepdims else grad
-                    grad = grad * np.ones_like(self.data) / n
-                self.grad += grad
+                if axis is not None and not keepdims:
+                    grad = np.expand_dims(grad, axis)
+                self.grad += np.ones_like(self.data) * grad
     return _backward
 
 def backward_log(self, result):
@@ -118,6 +123,27 @@ def backward_log(self, result):
                 grad = result.grad
                 grad = grad * np.ones_like(self.data) / self.data
                 self.grad += grad
+    return _backward
+
+def backward_max(self, result, axis, keepdims):
+    def _backward():
+        if not _no_grad_mode:
+            if self.requires_grad:
+                if self.grad is None:
+                    self.grad = np.zeros_like(self.data)
+                max_values = result.data
+                grad_incoming = result.grad
+
+                if axis is not None and not keepdims:
+                    max_values = np.expand_dims(max_values, axis)
+                    grad_incoming = np.expand_dims(grad_incoming, axis)
+
+                mask = (self.data == max_values)
+
+                divisor = mask.sum(axis=axis, keepdims=True)
+                divisor[divisor == 0] = 1 # to avoid division by zero
+
+                self.grad += (mask / divisor) * grad_incoming
     return _backward
 
 def build_computational_order(root) -> List:
