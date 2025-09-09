@@ -13,6 +13,7 @@ from autograd import (backward_add,
 from typing import Tuple
 from autograd import build_computational_order
 from autograd import no_grad
+import optim
 
 __all__ = ['tensor', 'zero_grad', 'tanh', 'mean', 'log', 'to_numpy', 'arange']
 

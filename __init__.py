@@ -1,4 +1,6 @@
 from .tenxar import tensor
+from .tenxar import to_numpy
+import nn
 
 from .autograd import no_grad
 
