@@ -1,16 +1,4 @@
-from .tenxar import tensor
-from .tenxar import to_numpy
-import nn
-
+from .tensor import Tensor, arange
 from .autograd import no_grad
-
-__all__ = [
-    'tenxar',
-    'shape',
-    'zero_grad',
-    'to_numpy',
-    'dtype',
-    'no_grad',
-    'mean',
-    'log'
-]
+from . import nn
+from . import optim

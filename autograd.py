@@ -95,6 +95,16 @@ def backward_pow(self, other, result):
                 self.grad += result.grad * (other * (self.data ** (other - 1)))
     return _backward
 
+def backward_relu(self, result):
+    def _backward():
+        if not _no_grad_mode:
+            if self.requires_grad:
+                if self.grad is None:
+                    self.grad = np.zeros_like(self.data)
+                mask = (self.data > 0)
+                self.grad += result.grad * mask
+    return _backward
+
 def backward_mean(self, result, axis=None, keepdims=False):
     def _backward():
         if not _no_grad_mode:

@@ -1,9 +1,10 @@
 import numpy as np
-from autograd import (backward_add,
+from .autograd import (backward_add,
                       backward_matmul,
                       backward_exp,
                       backward_tanh,
                       backward_sigmoid,
+                      backward_relu,
                       backward_mean,
                       backward_sum,
                       backward_mul,
@@ -13,13 +14,12 @@ from autograd import (backward_add,
                       backward_getitem,
                       backward_squeeze)
 from typing import Tuple
-from autograd import build_computational_order
-from autograd import no_grad
-import optim
+from .autograd import build_computational_order
+from .autograd import no_grad
 
-__all__ = ['tensor', 'zero_grad', 'tanh', 'mean', 'log', 'to_numpy', 'arange', 'sigmoid', 'relu']
+__all__ = ['Tensor', 'arange']
 
-class tensor:
+class Tensor:
     def __init__(self, data, dtype=np.float32, requires_grad: bool=False):
         self.data = np.array(data, dtype=dtype)
         self.grad = None
@@ -29,19 +29,23 @@ class tensor:
         self._backward = lambda : None
 
     def __getitem__(self, index):
+        if isinstance(index, slice): # for mini batching
+            numpy_result = self.data[index]
+            return Tensor(numpy_result, requires_grad=False)
+
         original_index = index
         if isinstance(index, tuple):
             rows, cols = index
-            if isinstance(rows, tensor): rows = rows.to_numpy()
-            if isinstance(cols, tensor): cols = cols.to_numpy()
+            if isinstance(rows, Tensor): rows = rows.to_numpy()
+            if isinstance(cols, Tensor): cols = cols.to_numpy()
             original_index = (rows.astype(np.int64), cols.astype(np.int64))
             numpy_result = self.data[original_index]
         else:
-            if isinstance(index, tensor): index = index.to_numpy()
+            if isinstance(index, Tensor): index = index.to_numpy()
             original_index = index
             numpy_result = self.data[original_index]
 
-        result = tensor(numpy_result, requires_grad=self.requires_grad)
+        result = Tensor(numpy_result, requires_grad=self.requires_grad)
         if result.requires_grad:
             result.track = (self,)
             result.operation = 'getitem'
@@ -50,10 +54,10 @@ class tensor:
         return result
 
     def __repr__(self):
-        return f"tenxar.tensor({self.data}, requires_grad={self.requires_grad}, dtype={self.dtype})"
+        return f"tenxar.Tensor({self.data}, requires_grad={self.requires_grad}, dtype={self.dtype})"
     
-    def _ensure_tensor(self, other):
-        return other if isinstance(other, tensor) else tensor(other)
+    def _ensure_Tensor(self, other):
+        return other if isinstance(other, Tensor) else Tensor(other)
     
     @property
     def shape(self) -> Tuple[int, ...]:
@@ -61,7 +65,7 @@ class tensor:
     
     @property
     def dtype(self):
-        if isinstance(self, tensor):
+        if isinstance(self, Tensor):
             return self.data.dtype
         
     def __len__(self):
@@ -72,8 +76,8 @@ class tensor:
             self.grad = np.zeros_like(self.data)
 
     def __add__(self, other):
-        other = self._ensure_tensor(other)
-        result = tensor(self.data + other.data, requires_grad=self.requires_grad or other.requires_grad)
+        other = self._ensure_Tensor(other)
+        result = Tensor(self.data + other.data, requires_grad=self.requires_grad or other.requires_grad)
         if result.requires_grad:
             result.track = (self, other)
             result.operation = 'add'
@@ -81,16 +85,16 @@ class tensor:
         return result
     
     def __sub__(self, other):
-        other = self._ensure_tensor(other)
+        other = self._ensure_Tensor(other)
         return self + (-other)
 
     def __rsub__(self, other):
-        other = self._ensure_tensor(other)
+        other = self._ensure_Tensor(other)
         return other + (-self)
     
     def __mul__(self, other):
-        other = self._ensure_tensor(other)
-        result = tensor(self.data * other.data, requires_grad=self.requires_grad or other.requires_grad)
+        other = self._ensure_Tensor(other)
+        result = Tensor(self.data * other.data, requires_grad=self.requires_grad or other.requires_grad)
         if result.requires_grad:
             result.track = (self, other)
             result.operation = 'mul'
@@ -102,13 +106,13 @@ class tensor:
         return self * other
     
     def __neg__(self):
-        return self * tensor(-1, requires_grad=False)
+        return self * Tensor(-1, requires_grad=False)
 
     def __matmul__(self, other):
-        other = self._ensure_tensor(other)
+        other = self._ensure_Tensor(other)
         if self.shape[-1] != other.shape[0]:
             raise ValueError(f"Shape mismatch for matmul: {self.shape} and {other.shape}")
-        result = tensor(self.data @ other.data, requires_grad=self.requires_grad or other.requires_grad)
+        result = Tensor(self.data @ other.data, requires_grad=self.requires_grad or other.requires_grad)
         if result.requires_grad:
             result.track = (self, other)
             result.operation = 'matmul'
@@ -116,19 +120,19 @@ class tensor:
         return result
 
     def __rmatmul__(self, other):
-        other = self._ensure_tensor(other)
+        other = self._ensure_Tensor(other)
         return other @ self
     
     def __truediv__(self, other):
-        other = self._ensure_tensor(other)
+        other = self._ensure_Tensor(other)
         return self * (other ** -1)
     
     def _rtruediv(self, other):
-        other = self._ensure_tensor(other)
+        other = self._ensure_Tensor(other)
         return other * (self ** -1)
     
     def exp(self):
-        result = tensor(np.exp(self.data), requires_grad=self.requires_grad)
+        result = Tensor(np.exp(self.data), requires_grad=self.requires_grad)
         if result.requires_grad:
             result.track = (self,)
             result.operation = 'exp'
@@ -138,7 +142,7 @@ class tensor:
     def __pow__(self, other):
         if not isinstance(other, (int, float)):
             raise ValueError(f"Only scalar powers supported")
-        result = tensor(self.data ** other, requires_grad=self.requires_grad)
+        result = Tensor(self.data ** other, requires_grad=self.requires_grad)
         if result.requires_grad:
             result.track = (self,)
             result.operation = 'pow'
@@ -148,7 +152,7 @@ class tensor:
     def tanh(self):
         x = self.data
         tanh = np.tanh(x)
-        result = tensor(tanh, requires_grad=self.requires_grad)
+        result = Tensor(tanh, requires_grad=self.requires_grad)
         if result.requires_grad:
             result.track = (self,)
             result.operation = 'tanh'
@@ -157,7 +161,7 @@ class tensor:
     
     def sigmoid(self):
         sig = 1 / (1 + np.exp(-self.data))
-        result = tensor(sig, requires_grad=self.requires_grad)
+        result = Tensor(sig, requires_grad=self.requires_grad)
         
         if result.requires_grad:
             result.track = (self,)
@@ -167,12 +171,16 @@ class tensor:
     
     def relu(self):
         data = np.maximum(0, self.data)
-        result = tensor(data, requires_grad=self.requires_grad)
+        result = Tensor(data, requires_grad=self.requires_grad)
 
+        if self.requires_grad:
+            result.track = (self,)
+            result.operation = 'relu'
+            result._backward = backward_relu(self, result)
         return result
     
     def mean(self, axis=None, keepdims=False):
-        result = tensor(self.data.mean(axis=axis, keepdims=keepdims), requires_grad=self.requires_grad)
+        result = Tensor(self.data.mean(axis=axis, keepdims=keepdims), requires_grad=self.requires_grad)
         if result.requires_grad:
             result._backward = backward_mean(self, result, axis, keepdims)
             result.track = (self,)
@@ -180,7 +188,7 @@ class tensor:
         return result
     
     def sum(self, axis=None, keepdims=False):
-        result = tensor(self.data.sum(axis=axis, keepdims=keepdims), requires_grad=self.requires_grad)
+        result = Tensor(self.data.sum(axis=axis, keepdims=keepdims), requires_grad=self.requires_grad)
         if result.requires_grad:
             result._backward = backward_sum(self, result, axis, keepdims)
             result.track = (self,)
@@ -188,7 +196,7 @@ class tensor:
         return result
     
     def log(self):
-        result = tensor(np.log(self.data), requires_grad=self.requires_grad)
+        result = Tensor(np.log(self.data), requires_grad=self.requires_grad)
         if result.requires_grad:
             result._backward = backward_log(self, result)
             result.track = (self,)
@@ -197,7 +205,7 @@ class tensor:
     
     def max(self, axis=None, keepdims=False):
         data = self.data.max(axis=axis, keepdims=keepdims)
-        result = tensor(data, requires_grad=self.requires_grad)
+        result = Tensor(data, requires_grad=self.requires_grad)
 
         if result.requires_grad:
             result.track = (self,)
@@ -221,29 +229,27 @@ class tensor:
     def to_numpy(self) -> np.ndarray:
         return np.array(self.data)
     
-    def to_tensor(self):
+    def to_Tensor(self):
         if isinstance(self, np.ndarray):
-            return tensor(self)
-    
-    @property
-    def dtype(self):
-        if isinstance(self, tensor):
-            return self.data.dtype
+            return Tensor(self)
         
     def arange(*args, dtype=np.int64, requires_grad=False, **kwargs):
         print(args)
-        nargs = (arg.to_numpy() if isinstance(arg, tensor) else arg for arg in args)
+        nargs = (arg.to_numpy() if isinstance(arg, Tensor) else arg for arg in args)
         data = np.arange(*nargs, dtype=dtype, **kwargs)
-        return tensor(data, requires_grad=requires_grad)
+        return Tensor(data, requires_grad=requires_grad)
     
     def squeeze(self, axis=None):
         data = self.data.squeeze(axis=axis)
-        result = tensor(data, requires_grad=self.requires_grad)
+        result = Tensor(data, requires_grad=self.requires_grad)
 
         if result.requires_grad:
             result.track = (self,)
             result.operation = 'squeeze'
             result._backward = backward_squeeze(self, result)
         return result
+    
+    def round(self, decimals=0):
+        return Tensor(self.data.round(decimals=decimals), requires_grad=False)
         
-arange = tensor.arange
+arange = Tensor.arange
