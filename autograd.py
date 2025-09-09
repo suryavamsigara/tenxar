@@ -68,6 +68,15 @@ def backward_tanh(self, tanh, result):
                 self.grad += result.grad * (1 - tanh ** 2)
     return _backward
 
+def backward_sigmoid(self, sig, result):
+    def _backward():
+        if not _no_grad_mode:
+            if self.requires_grad:
+                if self.grad is None:
+                    self.grad = np.zeros_like(self.data)
+                self.grad += result.grad * (sig * (1 - sig))
+    return _backward
+
 def backward_exp(self, result):
     def _backward():
         if not _no_grad_mode:
@@ -144,6 +153,16 @@ def backward_max(self, result, axis, keepdims):
                 divisor[divisor == 0] = 1 # to avoid division by zero
 
                 self.grad += (mask / divisor) * grad_incoming
+    return _backward
+
+def backward_squeeze(self, result):
+    def _backward():
+        if not _no_grad_mode:
+            if self.requires_grad:
+                if self.grad is None:
+                    self.grad = np.zeros_like(self.data)
+                # Reshaping the gradient
+                self.grad += np.reshape(result.grad, self.data.shape)
     return _backward
 
 def build_computational_order(root) -> List:

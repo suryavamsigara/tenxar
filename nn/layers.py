@@ -14,3 +14,10 @@ class Linear(Module):
             result += self.bias
 
         return result
+
+class ReLU(Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, x):
+        return x.relu()

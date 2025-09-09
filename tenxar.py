@@ -3,19 +3,21 @@ from autograd import (backward_add,
                       backward_matmul,
                       backward_exp,
                       backward_tanh,
+                      backward_sigmoid,
                       backward_mean,
                       backward_sum,
                       backward_mul,
                       backward_pow,
                       backward_log,
                       backward_max,
-                      backward_getitem)
+                      backward_getitem,
+                      backward_squeeze)
 from typing import Tuple
 from autograd import build_computational_order
 from autograd import no_grad
 import optim
 
-__all__ = ['tensor', 'zero_grad', 'tanh', 'mean', 'log', 'to_numpy', 'arange']
+__all__ = ['tensor', 'zero_grad', 'tanh', 'mean', 'log', 'to_numpy', 'arange', 'sigmoid', 'relu']
 
 class tensor:
     def __init__(self, data, dtype=np.float32, requires_grad: bool=False):
@@ -61,6 +63,9 @@ class tensor:
     def dtype(self):
         if isinstance(self, tensor):
             return self.data.dtype
+        
+    def __len__(self):
+        return len(self.data)
     
     def zero_grad(self):
         if self.requires_grad:
@@ -150,6 +155,22 @@ class tensor:
             result._backward = backward_tanh(self, tanh, result)
         return result
     
+    def sigmoid(self):
+        sig = 1 / (1 + np.exp(-self.data))
+        result = tensor(sig, requires_grad=self.requires_grad)
+        
+        if result.requires_grad:
+            result.track = (self,)
+            result.operation = 'sigmoid'
+            result._backward = backward_sigmoid(self, sig, result)
+        return result
+    
+    def relu(self):
+        data = np.maximum(0, self.data)
+        result = tensor(data, requires_grad=self.requires_grad)
+
+        return result
+    
     def mean(self, axis=None, keepdims=False):
         result = tensor(self.data.mean(axis=axis, keepdims=keepdims), requires_grad=self.requires_grad)
         if result.requires_grad:
@@ -214,5 +235,15 @@ class tensor:
         nargs = (arg.to_numpy() if isinstance(arg, tensor) else arg for arg in args)
         data = np.arange(*nargs, dtype=dtype, **kwargs)
         return tensor(data, requires_grad=requires_grad)
+    
+    def squeeze(self, axis=None):
+        data = self.data.squeeze(axis=axis)
+        result = tensor(data, requires_grad=self.requires_grad)
+
+        if result.requires_grad:
+            result.track = (self,)
+            result.operation = 'squeeze'
+            result._backward = backward_squeeze(self, result)
+        return result
         
 arange = tensor.arange

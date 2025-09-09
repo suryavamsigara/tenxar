@@ -3,6 +3,9 @@ import numpy as np
 
 
 def cross_entropy(logits: tenxar.tensor, y_labels: tenxar.tensor) -> tenxar.tensor:
+    if y_labels.data.ndim > 1:
+        y_labels = y_labels.squeeze()
+    print(y_labels)
     logits_max = logits.max(axis=1, keepdims=True)
     shifted_logits = logits - logits_max
 
@@ -19,3 +22,15 @@ def softmax(logits: tenxar.tensor) -> tenxar.tensor:
     probs = counts / counts.sum(1, keepdims=True)
     return probs
     
+
+def binary_cross_entropy(logits: tenxar.tensor, y_labels: tenxar.tensor) -> tenxar.tensor:
+    if logits.shape != y_labels.shape:
+        raise ValueError(f"Shapes should be the same: {logits.shape}, {y_labels.shape}")
+    
+    probs = logits.sigmoid()
+
+    epsilon = 1e-9
+
+    loss = -(y_labels * (probs + epsilon).log() + (1 - y_labels) * (1 - probs + epsilon).log()).mean()
+
+    return loss
