@@ -4,7 +4,7 @@ import numpy as np
 def cross_entropy(logits: Tensor, y_labels: Tensor) -> Tensor:
     if y_labels.data.ndim > 1:
         y_labels = y_labels.squeeze()
-    print(y_labels)
+        
     logits_max = logits.max(axis=1, keepdims=True)
     shifted_logits = logits - logits_max
 

@@ -175,6 +175,15 @@ def backward_squeeze(self, result):
                 self.grad += np.reshape(result.grad, self.data.shape)
     return _backward
 
+def backward_reshape(self, result):
+    def _backward():
+        if not _no_grad_mode:
+            if self.requires_grad:
+                if self.requires_grad is None:
+                    self.grad = np.zeros_like(self.data)
+                self.grad += np.reshape(result.grad, self.data.shape)
+    return _backward
+
 def build_computational_order(root) -> List:
     computation_order: List = []
     visited: Set = set()

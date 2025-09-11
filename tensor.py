@@ -12,7 +12,8 @@ from .autograd import (backward_add,
                       backward_log,
                       backward_max,
                       backward_getitem,
-                      backward_squeeze)
+                      backward_squeeze,
+                      backward_reshape)
 from typing import Tuple
 from .autograd import build_computational_order
 from .autograd import no_grad
@@ -251,5 +252,15 @@ class Tensor:
     
     def round(self, decimals=0):
         return Tensor(self.data.round(decimals=decimals), requires_grad=False)
+    
+    def reshape(self, *shape):
+        data = self.data.reshape(*shape)
+        result = Tensor(data, requires_grad=self.requires_grad)
+
+        if result.requires_grad:
+            result.track = (self,)
+            result.operation = 'reshape'
+            result._backward = backward_reshape(self, result)
+        return result
         
 arange = Tensor.arange
