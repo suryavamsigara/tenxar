@@ -31,6 +31,7 @@ It has SGD optimizer
 
 ## Project Structure
 
+```
 tenxar/
 |--- __init__.py
 |--- tensor.py
@@ -43,12 +44,13 @@ tenxar/
 |--- optim/
       |--- __init__.py
       |--- sgd.py
+```
 
 
 ### Example
-`import tenxar
+```import tenxar
 x = tenxar.Tensor([1, 2, 3], requires_grad=True)
 y = tenxar.Tensor([[4, 5, 6], [1, 2, 5]], requires_grad=True)
-`
+```
 
 
