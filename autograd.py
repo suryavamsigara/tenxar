@@ -3,6 +3,9 @@ from typing import List, Set
 from contextlib import contextmanager
 
 def match_shape(grad, shape):
+    """
+    This is to ensure the gradients to have correct shape when propagating backwards (broadcasting)
+    """
     while len(grad.shape) > len(shape):
         grad = grad.sum(axis=0)
     for i, dim in enumerate(shape):
@@ -20,6 +23,9 @@ def backward_getitem(self, index, result):
     return _backward
 
 def backward_add(self, other, result):
+    """
+    Backward pass for addition operation. Gradients flow equally to both 
+    """
     def _backward():
         if not _no_grad_mode:
             if self.requires_grad:
@@ -33,6 +39,10 @@ def backward_add(self, other, result):
     return _backward
 
 def backward_mul(self, other, result):
+    """
+    result = x * y
+    dL/dx = dL/dresult * dresult/dx = result.grad * y
+    """
     def _backward():
         if not _no_grad_mode:
             if self.requires_grad:
@@ -60,6 +70,9 @@ def backward_matmul(self, other, result):
     return _backward
 
 def backward_tanh(self, tanh, result):
+    """
+    d(tanx)/dx = 1 - tanh**2x
+    """
     def _backward():
         if not _no_grad_mode:
             if self.requires_grad:
@@ -69,6 +82,9 @@ def backward_tanh(self, tanh, result):
     return _backward
 
 def backward_sigmoid(self, sig, result):
+    """
+    d(sigmoid)/dx = sigmoid(1 - sigmoid)
+    """
     def _backward():
         if not _no_grad_mode:
             if self.requires_grad:
@@ -96,12 +112,15 @@ def backward_pow(self, other, result):
     return _backward
 
 def backward_relu(self, result):
+    """
+    derivative is 1 if x > 0, otherwise 0
+    """
     def _backward():
         if not _no_grad_mode:
             if self.requires_grad:
                 if self.grad is None:
                     self.grad = np.zeros_like(self.data)
-                mask = (self.data > 0)
+                mask = (self.data > 0) # False - 0, True - 1
                 self.grad += result.grad * mask
     return _backward
 
@@ -203,6 +222,9 @@ _no_grad_mode = False
 
 @contextmanager
 def no_grad():
+    """
+    context manager to disable gradient computation
+    """
     global _no_grad_mode
     original = _no_grad_mode
     _no_grad_mode = True

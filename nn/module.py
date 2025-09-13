@@ -35,10 +35,12 @@ class Module:
         self._modules[name] = module
 
     def train(self):
+        # yet to use
         self.training = True
 
 
     def eval(self):
+        # yet to use
         self.training = False
         
     def forward(self, *args, **kwargs):

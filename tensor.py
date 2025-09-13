@@ -265,5 +265,3 @@ class Tensor:
     def rand(*shape, dtype=np.float32, requires_grad=False):
         data = np.random.rand(*shape)
         return Tensor(data, dtype=dtype, requires_grad=requires_grad)
-        
-arange = Tensor.arange
