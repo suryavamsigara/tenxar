@@ -24,3 +24,17 @@ class ReLU(Module):
 
     def forward(self, x):
         return x.relu()
+    
+class Sequential(Module):
+    """
+    Register each layer using _add_module
+    """
+    def __init__(self, *args):
+        super().__init__()
+        for idx, layer in enumerate(*args):
+            self._add_module(str(idx), layer)
+
+    def forward(self, x):
+        for layer in self._modules.values():
+            x = layer(x)
+        return x 
