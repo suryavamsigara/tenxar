@@ -18,7 +18,7 @@ from typing import Tuple
 from .autograd import build_computational_order
 from .autograd import no_grad
 
-__all__ = ['Tensor', 'arange']
+__all__ = ['Tensor', 'arange', 'rand']
 
 class Tensor:
     def __init__(self, data, dtype=np.float32, requires_grad: bool=False):
@@ -233,11 +233,6 @@ class Tensor:
     def to_Tensor(self):
         if isinstance(self, np.ndarray):
             return Tensor(self)
-        
-    def arange(*args, dtype=np.int64, requires_grad=False, **kwargs):
-        nargs = (arg.to_numpy() if isinstance(arg, Tensor) else arg for arg in args)
-        data = np.arange(*nargs, dtype=dtype, **kwargs)
-        return Tensor(data, requires_grad=requires_grad)
     
     def squeeze(self, axis=None):
         data = self.data.squeeze(axis=axis)
@@ -261,7 +256,13 @@ class Tensor:
             result.operation = 'reshape'
             result._backward = backward_reshape(self, result)
         return result
-    
-    def rand(*shape, dtype=np.float32, requires_grad=False):
-        data = np.random.rand(*shape)
-        return Tensor(data, dtype=dtype, requires_grad=requires_grad)
+
+def arange(*args, dtype=np.int64, requires_grad=False, **kwargs):
+    nargs = (arg.to_numpy() if isinstance(arg, Tensor) else arg for arg in args)
+    data = np.arange(*nargs, dtype=dtype, **kwargs)
+    return Tensor(data, requires_grad=requires_grad)
+
+def rand(*shape, dtype=np.float32, requires_grad=False):
+    data = np.random.rand(*shape)
+    return Tensor(data, dtype=dtype, requires_grad=requires_grad)
+
