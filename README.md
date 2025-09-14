@@ -47,10 +47,38 @@ tenxar/
 ```
 
 
-### Example
-```import tenxar
+### Examples
+```
+import tenxar
 x = tenxar.Tensor([1, 2, 3], requires_grad=True)
 y = tenxar.Tensor([[4, 5, 6], [1, 2, 5]], requires_grad=True)
 ```
 
+
+```
+from tenxar import nn
+class Model(nn.Module):
+    def __init__(self, in_features, out_features, hidden_units=8):
+        super().__init__()
+        self.layer1 = nn.Linear(in_features=in_features, out_features=hidden_units)
+        self.relu1 = nn.ReLU()
+        self.layer2 = nn.Linear(in_features=hidden_units, out_features=hidden_units)
+        self.relu2 = nn.ReLU()
+        self.layer3 = nn.Linear(in_features=hidden_units, out_features=out_features)
+
+    def forward(self, x):
+        x = self.relu1(self.layer1(x))
+        x = self.relu2(self.layer2(x))
+        return self.layer3(x)
+
+model_0 = Model(in_features=2,
+                    out_features=4,
+                    hidden_units=8)
+model_4
+```
+
+
+<img width="847" height="611" alt="image" src="https://github.com/user-attachments/assets/2e3b727b-e900-4177-9866-9f0b0264cba4" />
+
+<img width="691" height="737" alt="image" src="https://github.com/user-attachments/assets/24d0e729-cf0b-422c-b3ed-363097573f29" />
 
