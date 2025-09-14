@@ -77,6 +77,7 @@ model_0 = Model(in_features=2,
 model_4
 ```
 
+Got this after training the model! I used make_circles and make_blobs datasets from sklearn.
 
 <img width="847" height="611" alt="image" src="https://github.com/user-attachments/assets/2e3b727b-e900-4177-9866-9f0b0264cba4" />
 
